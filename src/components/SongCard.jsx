@@ -1,107 +1,97 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { Play, Pause, Heart, Volume2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { Play, Pause, Heart, Volume2, MoreHorizontal } from 'lucide-react';
 import { incrementPlayCount } from '../utils/analytics';
+import AudioPlayer from 'react-h5-audio-player';
+import 'react-h5-audio-player/lib/styles.css';
 
-const SongCard = ({ song }) => {
+const SongCard = ({ song, featured = false }) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [duration, setDuration] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
-  const audioRef = useRef(null);
+  const [isLiked, setIsLiked] = useState(false);
   const [showPlayer, setShowPlayer] = useState(false);
+  const playerRef = useRef(null);
 
-  // Anti-download: Disable context menu and inspect
+  // Anti-download measures
   useEffect(() => {
-    const audio = audioRef.current;
+    const audio = playerRef.current?.audio?.current;
     if (audio) {
       audio.addEventListener('contextmenu', (e) => e.preventDefault());
-      audio.addEventListener('loadedmetadata', () => {
-        setDuration(audio.duration);
-      });
+      audio.addEventListener('dragstart', (e) => e.preventDefault());
     }
-  }, [song.audioUrl]);
+  }, [showPlayer]);
 
-  const togglePlay = async () => {
-    if (audioRef.current) {
-      try {
-        if (isPlaying) {
-          await audioRef.current.pause();
-        } else {
-          await audioRef.current.play();
-          await incrementPlayCount(song.id, 'song');
-        }
-        setIsPlaying(!isPlaying);
-      } catch (error) {
-        console.error('Playback error:', error);
-      }
-    }
+  const handlePlay = async () => {
+    setIsPlaying(true);
+    await incrementPlayCount(song.id, 'song');
   };
 
-  // Anti-download: Disable download through keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        return false;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  const handleLike = () => {
+    setIsLiked(!isLiked);
+    // TODO: Save to user's liked songs
+  };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300">
-      <div className="relative">
-        <img 
-          src={song.thumbnail || '/default-song.jpg'} 
+    <div className={`card ${featured ? 'col-span-2 row-span-2' : ''}`}>
+      <div className="relative group">
+        <img
+          src={song.thumbnail || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400'}
           alt={song.title}
-          className="w-full h-48 object-cover"
+          className={`w-full object-cover ${featured ? 'h-64' : 'h-48'}`}
         />
-        <button
-          onClick={() => setShowPlayer(!showPlayer)}
-          className="absolute bottom-2 right-2 bg-[#d12200] text-white p-3 rounded-full hover:bg-[#a51502] transition-all"
-        >
-          {isPlaying ? <Pause size={20} /> : <Play size={20} />}
-        </button>
-      </div>
-      
-      <div className="p-4">
-        <h3 className="font-semibold text-lg text-[#a51502] mb-1">{song.title}</h3>
-        <p className="text-gray-600 text-sm mb-2">{song.artist}</p>
         
+        {/* Overlay */}
+        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300 flex items-center justify-center">
+          <button
+            onClick={() => setShowPlayer(!showPlayer)}
+            className="bg-primary text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transform scale-90 group-hover:scale-100 transition-all duration-300 hover:bg-secondary"
+          >
+            {isPlaying ? <Pause size={24} /> : <Play size={24} />}
+          </button>
+        </div>
+
+        {/* Duration Badge */}
+        <span className="absolute top-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
+          {song.duration || '3:45'}
+        </span>
+      </div>
+
+      <div className="p-4">
+        <div className="flex justify-between items-start mb-2">
+          <div>
+            <Link to={`/songs/${song.id}`}>
+              <h3 className="font-semibold text-lg text-secondary hover:text-primary transition-colors">
+                {song.title}
+              </h3>
+            </Link>
+            <p className="text-gray-600 text-sm">{song.artist}</p>
+          </div>
+          <button
+            onClick={handleLike}
+            className={`transition-colors ${isLiked ? 'text-primary' : 'text-gray-400 hover:text-primary'}`}
+          >
+            <Heart size={20} fill={isLiked ? '#d12200' : 'none'} />
+          </button>
+        </div>
+
         {showPlayer && (
-          <div className="mt-3">
-            <audio 
-              ref={audioRef}
+          <div className="mt-4 animate-slide-up">
+            <AudioPlayer
+              ref={playerRef}
               src={song.audioUrl}
-              controls
-              className="w-full hidden"
-              controlsList="nodownload"
-              onContextMenu={(e) => e.preventDefault()}
+              onPlay={handlePlay}
+              showJumpControls={false}
+              customProgressBarSection={[]}
+              customControlsSection={['MAIN_CONTROLS', 'VOLUME_CONTROLS']}
+              autoPlay={false}
+              layout="horizontal"
+              className="custom-audio-player"
             />
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={togglePlay}
-                className="bg-[#f8c5c0] text-[#d12200] p-2 rounded-full hover:bg-[#cf2100] hover:text-white transition-all"
-              >
-                {isPlaying ? <Pause size={16} /> : <Play size={16} />}
-              </button>
-              <div className="flex-1 h-1 bg-gray-200 rounded-full">
-                <div 
-                  className="h-full bg-[#d12200] rounded-full" 
-                  style={{ width: `${(currentTime / duration) * 100}%` }}
-                ></div>
-              </div>
-              <Volume2 size={16} className="text-[#a51502]" />
-            </div>
           </div>
         )}
-        
-        <div className="flex items-center justify-between mt-3">
-          <span className="text-xs text-gray-500">{song.plays || 0} plays</span>
-          <button className="text-[#cf2100] hover:text-[#d12200]">
-            <Heart size={16} />
-          </button>
+
+        <div className="flex items-center justify-between mt-3 text-sm">
+          <span className="text-gray-500">{song.plays?.toLocaleString() || 0} plays</span>
+          <span className="text-gray-400">{song.album || 'Single'}</span>
         </div>
       </div>
     </div>
