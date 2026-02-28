@@ -1,4 +1,4 @@
-import { doc, updateDoc, increment, collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, increment, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 export const incrementPlayCount = async (contentId, contentType) => {
@@ -8,15 +8,27 @@ export const incrementPlayCount = async (contentId, contentType) => {
       plays: increment(1)
     });
 
-    // Log activity for analytics
+    // Log to analytics
     await addDoc(collection(db, 'analytics'), {
+      type: 'play',
       contentType,
       contentId,
-      action: 'play',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent
     });
   } catch (error) {
     console.error('Error incrementing play count:', error);
+  }
+};
+
+export const trackView = async (contentId, contentType) => {
+  try {
+    const docRef = doc(db, contentType === 'song' ? 'songs' : 'videos', contentId);
+    await updateDoc(docRef, {
+      views: increment(1)
+    });
+  } catch (error) {
+    console.error('Error tracking view:', error);
   }
 };
 
@@ -26,6 +38,7 @@ export const trackUserAction = async (action, details = {}) => {
       action,
       ...details,
       timestamp: new Date().toISOString(),
+      url: window.location.href,
       userAgent: navigator.userAgent
     });
   } catch (error) {
