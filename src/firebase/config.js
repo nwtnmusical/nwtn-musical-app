@@ -1,8 +1,8 @@
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
-import { getAuth } from "firebase/auth";
+import { initializeApp } from 'firebase/app';
+import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
+import { getAuth } from 'firebase/auth';
+import { getAnalytics } from 'firebase/analytics';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBiEQsW2ClPd6dbpmy0EQCNr6JArQnSDYc",
@@ -14,10 +14,22 @@ const firebaseConfig = {
   measurementId: "G-K78TCR2ENH"
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+
+// Initialize services
 const db = getFirestore(app);
 const storage = getStorage(app);
 const auth = getAuth(app);
+const analytics = getAnalytics(app);
+
+// Enable offline persistence
+enableIndexedDbPersistence(db).catch((err) => {
+  if (err.code === 'failed-precondition') {
+    console.log('Persistence failed: Multiple tabs open');
+  } else if (err.code === 'unimplemented') {
+    console.log('Persistence not supported');
+  }
+});
 
 export { db, storage, auth, analytics };
